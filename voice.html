@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reconhecimento de voz</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;font:16px Arial,sans-serif;background:#f3f6f8;color:#18312a}
+main{max-width:420px;margin:8vh auto;background:white;padding:26px;border-radius:18px;box-shadow:0 8px 30px #163b2a18;text-align:center}
+h1{font-size:22px;margin:0 0 12px}p{line-height:1.5;color:#53665e}
+button{border:0;border-radius:12px;background:#087f55;color:white;padding:14px 22px;font-size:17px;font-weight:bold;cursor:pointer}
+#status{margin-top:18px;min-height:48px;font-size:15px}
+</style></head>
+<body><main>
+<h1>🎙 Reconhecimento de voz</h1>
+<p>Toque no botão e fale. Ao terminar, o texto será enviado ao campo selecionado no aplicativo de orçamentos.</p>
+<button id="start">Iniciar microfone</button>
+<div id="status" aria-live="polite">Aguardando sua autorização.</div>
+</main>
+<script>
+const statusEl=document.getElementById('status');
+const start=document.getElementById('start');
+function send(type,payload){if(window.opener&&!window.opener.closed)window.opener.postMessage({type,...payload},'*');}
+start.addEventListener('click',()=>{
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){statusEl.textContent='Este navegador não oferece reconhecimento de voz. Tente o Chrome atualizado.';return;}
+ const rec=new SR(); rec.lang='pt-BR';rec.continuous=false;rec.interimResults=false;rec.maxAlternatives=1;
+ start.disabled=true;statusEl.textContent='Ouvindo… fale agora.';
+ rec.onresult=e=>{const transcript=e.results?.[0]?.[0]?.transcript||'';statusEl.textContent='Reconhecido: '+transcript;send('ORCAMENTO_VOICE_RESULT',{transcript});setTimeout(()=>window.close(),700);};
+ rec.onerror=e=>{const msg=e.error==='not-allowed'?'O navegador não autorizou o microfone. Confira a permissão deste site no GitHub Pages.':'Falha no reconhecimento: '+e.error;statusEl.textContent=msg;send('ORCAMENTO_VOICE_ERROR',{message:msg});start.disabled=false;};
+ rec.onend=()=>{start.disabled=false;if(statusEl.textContent==='Ouvindo… fale agora.')statusEl.textContent='Nenhuma fala detectada. Toque para tentar novamente.';};
+ try{rec.start();}catch(err){start.disabled=false;statusEl.textContent='Não foi possível iniciar: '+err.message;send('ORCAMENTO_VOICE_ERROR',{message:statusEl.textContent});}
+});
+</script></body></html>
