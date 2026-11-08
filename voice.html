@@ -1,92 +1,21 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#12243a">
-<title>Microfone — Orçamentos por Evento</title>
-<style>
-:root{color-scheme:light;--navy:#12243a;--blue:#245b86;--bg:#f3f6fa;--line:#dce4ec;--muted:#667789}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);font:16px system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#172635;display:grid;place-items:center;padding:20px}
-main{width:min(100%,390px);background:white;border:1px solid var(--line);border-radius:18px;padding:26px 22px;text-align:center;box-shadow:0 12px 36px #12243a12}
-h1{font-size:21px;margin:0 0 8px;color:var(--navy)}p{color:var(--muted);line-height:1.45;font-size:14px}
-button{border:0;border-radius:12px;background:var(--blue);color:white;font-weight:700;font-size:16px;padding:15px 22px;width:100%;margin-top:12px;cursor:pointer}
-button:disabled{opacity:.55;cursor:wait}#status{min-height:44px;margin-top:18px;font-size:14px;color:#245b86}#transcript{margin-top:12px;padding:12px;border-radius:10px;background:#f3f6fa;min-height:48px;text-align:left;overflow-wrap:anywhere}
-.small{font-size:12px;color:#8291a0;margin-top:16px}
-</style>
-</head>
-<body>
-<main>
-<h1> ditado por voz </h1>
-<p>Toque no botão e fale. Quando terminar, o texto será enviado ao campo do orçamento.</p>
-<button id="start">🎙️ Iniciar microfone</button>
-<div id="status">Aguardando autorização para usar o microfone.</div>
-<div id="transcript" aria-live="polite"></div>
-<div class="small">Se solicitado, permita o acesso ao microfone no navegador.</div>
-</main>
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Microfone - Orçamentos por Evento</title>
+<style>body{font:16px system-ui,Arial;background:#f3f6fa;color:#172635;margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;box-sizing:border-box}main{background:white;border:1px solid #dce4ec;border-radius:16px;padding:24px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 28px #12243a12}h2{color:#12243a;margin-top:0}p{color:#667789;line-height:1.45}button{background:#245b86;color:white;border:0;border-radius:10px;padding:14px 18px;font-size:16px;font-weight:700;width:100%;cursor:pointer}button:disabled{opacity:.6}#status{min-height:42px;margin-top:16px;color:#245b86}#result{padding:10px;background:#f3f6fa;border-radius:8px;min-height:24px;overflow-wrap:anywhere}</style></head>
+<body><main><h2>Ditado por voz</h2><p>Toque no botão e fale. Ao terminar, o texto será enviado ao campo do orçamento.</p><button id="start">🎙️ Iniciar microfone</button><div id="status">Pronto para iniciar.</div><div id="result" aria-live="polite"></div></main>
 <script>
 (function(){
-  const status=document.getElementById('status');
-  const transcript=document.getElementById('transcript');
-  const button=document.getElementById('start');
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  let recognition=null;
-  function send(type,extra){
-    if(window.opener&&!window.opener.closed){
-      window.opener.postMessage(Object.assign({type:type},extra||{}),'*');
-    }
-  }
-  function fail(message){
-    status.textContent=message;
-    button.disabled=false;
-    send('ORCAMENTO_VOICE_ERROR',{message:message});
-  }
-  if(!SR){
-    fail('Este navegador não oferece reconhecimento de voz. Use Chrome ou Edge atualizado.');
-    button.disabled=true;
-  }else{
-    send('ORCAMENTO_VOICE_READY');
-  }
-  button.addEventListener('click',function(){
-    if(!SR)return;
-    button.disabled=true;
-    status.textContent='Ouvindo… fale agora.';
-    transcript.textContent='';
-    recognition=new SR();
-    recognition.lang='pt-BR';
-    recognition.interimResults=true;
-    recognition.maxAlternatives=1;
-    let finalText='';
-    recognition.onresult=function(event){
-      let interim='';
-      for(let i=event.resultIndex;i<event.results.length;i++){
-        const part=event.results[i][0].transcript;
-        if(event.results[i].isFinal)finalText+=part;
-        else interim+=part;
-      }
-      transcript.textContent=(finalText+' '+interim).trim();
-    };
-    recognition.onerror=function(event){
-      let message='Não foi possível reconhecer a fala ('+event.error+').';
-      if(event.error==='not-allowed'||event.error==='service-not-allowed')message='Permissão do microfone negada. Autorize o microfone nas configurações do navegador e tente novamente.';
-      else if(event.error==='no-speech')message='Nenhuma fala foi detectada. Tente novamente.';
-      fail(message);
-    };
-    recognition.onend=function(){
-      const result=finalText.trim();
-      if(result){
-        status.textContent='Texto reconhecido. Retornando ao orçamento…';
-        send('ORCAMENTO_VOICE_RESULT',{transcript:result});
-        setTimeout(function(){window.close();},500);
-      }else if(button.disabled){
-        button.disabled=false;
-        status.textContent='Não houve texto reconhecido. Toque para tentar novamente.';
-      }
-    };
-    try{recognition.start();}
-    catch(e){fail('Não foi possível iniciar o microfone. Feche esta janela e tente novamente.');}
-  });
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ const btn=document.getElementById('start'),status=document.getElementById('status'),result=document.getElementById('result');
+ function send(type,extra){try{if(window.opener&&!window.opener.closed)window.opener.postMessage(Object.assign({type:type},extra||{}),'*');}catch(e){}}
+ function error(message){status.textContent=message;btn.disabled=false;send('ORCAMENTO_VOICE_ERROR',{message:message});}
+ if(!SR){btn.disabled=true;error('Este navegador não oferece reconhecimento de voz. Use Chrome ou Edge atualizado.');}
+ btn.addEventListener('click',function(){
+  if(!SR)return;btn.disabled=true;status.textContent='Ouvindo… fale agora.';result.textContent='';
+  const rec=new SR();rec.lang='pt-BR';rec.interimResults=true;rec.maxAlternatives=1;let finalText='';
+  rec.onresult=function(e){let interim='';for(let i=e.resultIndex;i<e.results.length;i++){let t=e.results[i][0].transcript;if(e.results[i].isFinal)finalText+=t;else interim+=t;}result.textContent=(finalText+' '+interim).trim();};
+  rec.onerror=function(e){let m=e.error==='not-allowed'||e.error==='service-not-allowed'?'Permissão do microfone negada. Autorize o microfone nas configurações do navegador.':'Falha no reconhecimento ('+e.error+'). Tente novamente.';error(m);};
+  rec.onend=function(){if(finalText.trim()){status.textContent='Texto reconhecido. Retornando ao aplicativo…';send('ORCAMENTO_VOICE_RESULT',{transcript:finalText.trim()});setTimeout(function(){window.close();},500);}else{btn.disabled=false;status.textContent='Nenhuma fala reconhecida. Toque para tentar novamente.';}};
+  try{rec.start();}catch(e){error('Não foi possível iniciar o microfone. Feche e abra esta janela novamente.');}
+ });
 })();
-</script>
-</body>
-</html>
+</script></body></html>
