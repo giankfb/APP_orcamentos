@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnóstico do microfone</title>
+<style>
+body{font:16px system-ui,Arial;background:#f3f6fa;color:#172635;margin:0;padding:18px}
+main{max-width:440px;margin:20px auto;background:#fff;padding:22px;border-radius:16px;border:1px solid #dce4ec}
+h2{margin-top:0;color:#12243a}p{line-height:1.45;color:#526477}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#245b86;color:white;font-size:16px;font-weight:700}
+#status{white-space:pre-wrap;margin-top:16px;padding:14px;border-radius:10px;background:#f3f6fa;line-height:1.5;overflow-wrap:anywhere}
+small{display:block;color:#718096;margin-top:14px}
+</style></head>
+<body><main>
+<h2>Teste de acesso ao microfone</h2>
+<p>Este teste não grava nem salva áudio. Ele apenas verifica se o navegador libera o microfone e se o reconhecimento de voz funciona quando a janela é aberta pelo aplicativo.</p>
+<button id="test">Testar agora</button>
+<div id="status" aria-live="polite">Aguardando. Toque em “Testar agora”.</div>
+<small>Se aparecer uma solicitação do navegador, escolha Permitir. Depois, fale uma frase curta.</small>
+</main>
+<script>
+const statusEl=document.getElementById('status');
+const button=document.getElementById('test');
+function show(s){statusEl.textContent=s;}
+function report(s){
+  show(s);
+  try{if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'ORCAMENTO_MIC_DIAGNOSTIC',text:s},'https://script.google.com');}catch(e){}
+}
+button.addEventListener('click',async()=>{
+  button.disabled=true;
+  const lines=[];
+  try{
+    lines.push('Página segura (HTTPS): '+window.isSecureContext);
+    const pp=document.permissionsPolicy||document.featurePolicy;
+    if(pp&&typeof pp.allowsFeature==='function') lines.push('Política do microfone: '+pp.allowsFeature('microphone'));
+    else lines.push('Política do microfone: navegador não informa');
+    if(navigator.permissions&&navigator.permissions.query){
+      try{const p=await navigator.permissions.query({name:'microphone'});lines.push('Permissão do navegador: '+p.state);}catch(e){lines.push('Consulta de permissão: indisponível ('+e.name+')');}
+    }
+    show(lines.join('\n')+'\nSolicitando acesso ao microfone…');
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) throw new Error('getUserMedia indisponível nesta janela');
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    stream.getTracks().forEach(t=>t.stop());
+    lines.push('Acesso ao microfone (getUserMedia): LIBERADO');
+    show(lines.join('\n')+'\nTestando reconhecimento de voz…');
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR) throw new Error('SpeechRecognition não disponível neste navegador');
+    const rec=new SR(); rec.lang='pt-BR'; rec.interimResults=false; rec.maxAlternatives=1;
+    rec.onresult=e=>{lines.push('Reconhecimento: FUNCIONOU');lines.push('Texto: '+e.results[0][0].transcript);report(lines.join('\n'));button.disabled=false;};
+    rec.onerror=e=>{lines.push('Reconhecimento: ERRO '+e.error);report(lines.join('\n'));button.disabled=false;};
+    rec.onend=()=>{button.disabled=false;};
+    rec.start();
+    lines.push('Fale agora…');show(lines.join('\n'));
+  }catch(e){
+    lines.push('Resultado: BLOQUEADO');
+    lines.push('Detalhe: '+(e.name||'Erro')+' — '+(e.message||e));
+    report(lines.join('\n'));button.disabled=false;
+  }
+});
+</script></body></html>
